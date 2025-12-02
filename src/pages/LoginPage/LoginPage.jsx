@@ -5,7 +5,7 @@ import Swal from "sweetalert2";
 // Firebase
 import { auth, db } from "../../firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -63,44 +63,50 @@ function LoginPage() {
 
   // Login con Google
   const handleGoogleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
+  const provider = new GoogleAuthProvider();
 
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
 
-      // Guardar usuario en Firestore si no existe
-      // const userRef = doc(db, "users", user.uid);
-      // await setDoc(
-      //   userRef,
-      //   {
-      //     uid: user.uid,
-      //     name: user.displayName,
-      //     email: user.email,
-      //     createdAt: new Date(),
-      //   },
-      //   { merge: true }
-      // );
-      console.log(user);
+    // 1. Buscar si el usuario existe en Firestore
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
 
-      Swal.fire({
-        icon: "success",
-        title: "Bienvenido",
-        text: `Hola ${user.displayName}`,
-        showConfirmButton: false,
-        timer: 2000,
-      });
+    console.log(userDoc);
 
-      navigate("/dashboard");
-    } catch (error) {
-      console.error(error);
+    if (!userDoc.exists()) {
+      // 2. Si NO existe → cerrar sesión y mostrar mensaje
+      await auth.signOut();
+
       Swal.fire({
         icon: "error",
-        title: "Error de Google Sign-In",
-        text: error.message,
+        title: "Acceso no autorizado",
+        text: "Tu cuenta de Google no está registrada en el sistema.",
       });
+
+      return;
     }
-  };
+
+    // 3. Si existe → permitir login
+    Swal.fire({
+      icon: "success",
+      title: "Bienvenido",
+      text: `Hola ${user.displayName}`,
+      showConfirmButton: false,
+      timer: 2000,
+    });
+
+    navigate("/dashboard");
+  } catch (error) {
+    console.error(error);
+    Swal.fire({
+      icon: "error",
+      title: "Error de Google Sign-In",
+      text: error.message,
+    });
+  }
+};
 
   return (
     <div className="container d-flex justify-content-center align-items-center vh-100">
