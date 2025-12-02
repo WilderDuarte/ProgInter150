@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
 // Firebase
-import { auth } from "../../firebase";
-import { signInWithEmailAndPassword } from "firebase/auth/web-extension";
+import { auth, db } from "../../firebase";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -23,12 +24,11 @@ function LoginPage() {
     });
   };
 
+  // Login con correo y contraseña
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const { email, password } = form;
 
-    // VALIDACIONES
     if (!email || !password) {
       Swal.fire({
         icon: "warning",
@@ -39,8 +39,9 @@ function LoginPage() {
     }
 
     try {
-      // LOGIN FIREBASE
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem("token", token);
 
       Swal.fire({
         icon: "success",
@@ -50,14 +51,53 @@ function LoginPage() {
         timer: 2000,
       });
 
-      // REDIRECCIONAR
       navigate("/dashboard");
-
     } catch (err) {
       Swal.fire({
         icon: "error",
         title: "Error al iniciar sesión",
         text: "Correo o contraseña incorrectos.",
+      });
+    }
+  };
+
+  // Login con Google
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Guardar usuario en Firestore si no existe
+      // const userRef = doc(db, "users", user.uid);
+      // await setDoc(
+      //   userRef,
+      //   {
+      //     uid: user.uid,
+      //     name: user.displayName,
+      //     email: user.email,
+      //     createdAt: new Date(),
+      //   },
+      //   { merge: true }
+      // );
+      console.log(user);
+
+      Swal.fire({
+        icon: "success",
+        title: "Bienvenido",
+        text: `Hola ${user.displayName}`,
+        showConfirmButton: false,
+        timer: 2000,
+      });
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error(error);
+      Swal.fire({
+        icon: "error",
+        title: "Error de Google Sign-In",
+        text: error.message,
       });
     }
   };
@@ -68,7 +108,6 @@ function LoginPage() {
         <h3 className="text-center mb-3">Iniciar Sesión</h3>
 
         <form onSubmit={handleSubmit}>
-
           {/* Email */}
           <div className="mb-3">
             <label className="form-label">Correo electrónico</label>
@@ -85,7 +124,6 @@ function LoginPage() {
           {/* Password */}
           <div className="mb-3">
             <label className="form-label">Contraseña</label>
-
             <div className="input-group">
               <input
                 type={showPassword ? "text" : "password"}
@@ -93,9 +131,8 @@ function LoginPage() {
                 className="form-control"
                 value={form.password}
                 onChange={handleChange}
-                placeholder="********"
+                placeholder="****"
               />
-
               <button
                 type="button"
                 className="btn btn-outline-secondary"
@@ -111,16 +148,28 @@ function LoginPage() {
 
           <button className="btn btn-primary w-100">Ingresar</button>
         </form>
+        
 
-        <div className="text-center mt-3 d-flex flex-column">
-          <Link to="/forgot" className="text-decoration-none mb-2">
-            ¿Olvidaste tu contraseña?
-          </Link>
+        {/* Sección de enlaces y Google Sign-In */}
+<div className="text-center mt-3 d-flex flex-column gap-2">
+  {/* Link a recuperar contraseña */}
+  <Link to="/forgot" className="text-decoration-none">
+    ¿Olvidaste tu contraseña?
+  </Link>
 
-          <Link to="/register" className="text-decoration-none">
-            Crear una cuenta
-          </Link>
-        </div>
+  {/* Link a crear cuenta */}
+  <Link to="/register" className="text-decoration-none">
+    Crear una cuenta
+  </Link>
+
+  {/* Botón de Google */}
+  <button
+    className="btn btn-outline-danger mt-2"
+    onClick={handleGoogleSignIn} // Función que maneja login con Google
+  >
+    <i className="bi bi-google me-2"></i> Iniciar sesión con Google
+  </button>
+</div>
 
       </div>
     </div>
